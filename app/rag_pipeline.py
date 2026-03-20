@@ -26,7 +26,7 @@ SYSTEM_PROMPT = ChatPromptTemplate.from_template(
 )
 
 REFINER_PROMPT = ChatPromptTemplate.from_template(
-    "You are an advanced AI assistant specialized in transforming structured retrieval outputs into natural, human-like, well-written explanations and risk assessments.\n\n"
+    "You are an advanced AI assistant specialized in transforming structured retrieval outputs into natural, human-like, well-written explanations and sophisticated risk assessments.\n\n"
     "Instructions:\n"
     "1. DO NOT copy text directly from chunks.\n"
     "2. DO NOT mention \"chunks\", \"sources\", or \"documents\".\n"
@@ -34,8 +34,9 @@ REFINER_PROMPT = ChatPromptTemplate.from_template(
     "4. Combine all information into a SINGLE smooth paragraph.\n"
     "5. Maintain logical flow: Start with overall purpose, then describe key functionalities, end with expected outcome or goal.\n"
     "6. Categorize the risk of this situation as 'High', 'Medium', or 'Low' based on the content.\n"
-    "7. Improve clarity.\n"
-    "8. Make it sound like: A human explaining the concept (clean, professional).\n\n"
+    "7. Calculate an Anomaly Score (0-100) representing how unusual the shipment data is.\n"
+    "8. Determine a Confidence Score (0-100) for your assessment.\n"
+    "9. List 3-4 specific Reasoning Points for your risk classification.\n\n"
     "Input Data:\n"
     "Question: {question}\n"
     "Raw Answer: {answer}\n"
@@ -43,7 +44,10 @@ REFINER_PROMPT = ChatPromptTemplate.from_template(
     "Return ONLY a JSON object in the following format:\n"
     "{{\n"
     "  \"answer\": \"The final paragraph...\",\n"
-    "  \"risk_level\": \"High/Medium/Low\"\n"
+    "  \"risk_level\": \"High/Medium/Low\",\n"
+    "  \"anomaly_score\": 85,\n"
+    "  \"confidence_score\": 92,\n"
+    "  \"reasoning_points\": [\"Reason 1\", \"Reason 2\", ...]\n"
     "}}\n"
     "Do not include any other text, markdown blocks, or explanations."
 )
@@ -158,10 +162,16 @@ class RAGPipeline:
             parsed = json.loads(content)
             final_answer = parsed.get("answer", content)
             risk_level = parsed.get("risk_level", "Medium")
+            anomaly_score = parsed.get("anomaly_score", 50)
+            confidence_score = parsed.get("confidence_score", 75)
+            reasoning_points = parsed.get("reasoning_points", [])
         except:
             logger.warning("Failed to parse JSON from refiner, falling back to raw content.")
             final_answer = content
             risk_level = "Medium"
+            anomaly_score = 50
+            confidence_score = 75
+            reasoning_points = []
 
         sources = []
         for doc in context_docs:
@@ -174,6 +184,9 @@ class RAGPipeline:
         return {
             "answer": final_answer.strip(),
             "risk_level": risk_level,
+            "anomaly_score": anomaly_score,
+            "confidence_score": confidence_score,
+            "reasoning_points": reasoning_points,
             "sources": sources,
             "num_docs_retrieved": len(sources),
         }

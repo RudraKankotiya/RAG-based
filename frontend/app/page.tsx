@@ -1,181 +1,283 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, ShieldAlert, Cpu, History, Bell, Settings } from "lucide-react";
+import { 
+  ShieldAlert, 
+  Search, 
+  MessageSquare, 
+  LayoutDashboard, 
+  History, 
+  Settings, 
+  Bell, 
+  User, 
+  Cpu, 
+  ExternalLink,
+  ChevronRight,
+  Sparkles,
+  Download,
+  Share2
+} from "lucide-react";
+
 import FileUpload from "@/components/FileUpload";
-import ResponsePanel from "@/components/ResponsePanel";
-import RiskVisualizer from "@/components/RiskVisualizer";
+import RiskDashboard from "@/components/RiskDashboard";
+import ChatInterface from "@/components/ChatInterface";
+import ExplainabilityPanel from "@/components/ExplainabilityPanel";
+import CommandPalette from "@/components/CommandPalette";
+import VoiceInput from "@/components/VoiceInput";
 import SourceSection from "@/components/SourceSection";
+
 import { AskResponse } from "@/types";
 
 export default function Home() {
-  const [query, setQuery] = useState("");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "chat" | "history">("dashboard");
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState<AskResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSearch = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!query.trim()) return;
-
+  const handleQuery = async (question: string) => {
     setLoading(true);
     setError(null);
     try {
       const res = await fetch("http://localhost:8000/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: query }),
+        body: JSON.stringify({ question }),
       });
-
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.detail || "Query failed");
-      }
-
+      if (!res.ok) throw new Error("Neural Link Failed");
       const data = await res.json();
       setResponse(data);
+      return data;
     } catch (err: any) {
       setError(err.message);
+      throw err;
     } finally {
       setLoading(false);
     }
   };
 
+  const suggestions = [
+    "Check for dangerous goods compliance",
+    "Identify any port congestion risks",
+    "Analyze weight discrepancy thresholds",
+    "Verify regulatory paperwork status"
+  ];
+
   return (
-    <main className="min-h-screen px-4 py-8 md:py-12 max-w-6xl mx-auto space-y-12">
-      {/* Header */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="space-y-2">
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="flex items-center gap-2 text-primary"
-          >
-            <ShieldAlert className="w-8 h-8" />
-            <h1 className="text-3xl font-bold tracking-tighter text-white">
-              Smart Container <span className="text-gradient">Risk Engine</span>
-            </h1>
-          </motion.div>
-          <p className="text-white/40 max-w-md font-light">
-            AI-powered intelligence for shipment security and regulatory compliance.
-          </p>
+    <div className="flex min-h-screen bg-background selection:bg-primary/30">
+      <CommandPalette />
+
+      {/* Sidebar */}
+      <aside className="w-20 lg:w-64 border-r border-white/5 flex flex-col p-6 gap-8 hidden md:flex">
+        <div className="flex items-center gap-3 px-2">
+          <div className="p-2 bg-primary rounded-xl glow-primary">
+            <ShieldAlert className="w-6 h-6 text-white" />
+          </div>
+          <span className="font-bold text-xl tracking-tighter text-white hidden lg:block uppercase italic">Smart Container</span>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button className="p-3 glass rounded-xl hover:text-primary transition-colors">
-            <History className="w-5 h-5" />
-          </button>
-          <button className="p-3 glass rounded-xl hover:text-primary transition-colors">
-            <Bell className="w-5 h-5" />
-          </button>
-          <button className="p-3 glass rounded-xl hover:text-primary transition-colors">
-            <Settings className="w-5 h-5" />
-          </button>
+        <nav className="flex-1 space-y-2">
+          <NavItem 
+            active={activeTab === "dashboard"} 
+            onClick={() => setActiveTab("dashboard")} 
+            icon={LayoutDashboard} 
+            label="Dashboard" 
+          />
+          <NavItem 
+            active={activeTab === "chat"} 
+            onClick={() => setActiveTab("chat")} 
+            icon={MessageSquare} 
+            label="Neural Chat" 
+          />
+          <NavItem 
+            active={activeTab === "history"} 
+            onClick={() => setActiveTab("history")} 
+            icon={History} 
+            label="Shipment Logs" 
+          />
+        </nav>
+
+        <div className="space-y-2 pt-8 border-t border-white/5">
+          <NavItem active={false} icon={Settings} label="Engine Config" />
+          <div className="p-4 glass rounded-[1.5rem] mt-4 hidden lg:block">
+            <div className="flex items-center gap-2 mb-2">
+              <Cpu className="w-4 h-4 text-primary animate-pulse" />
+              <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">System Status</span>
+            </div>
+            <p className="text-xs text-white/60 font-medium">Llama 3.3 Active</p>
+            <div className="mt-2 h-1 w-full bg-white/5 rounded-full overflow-hidden">
+              <div className="h-full w-4/5 bg-primary" />
+            </div>
+          </div>
         </div>
-      </header>
+      </aside>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Column: Input & Upload */}
-        <aside className="lg:col-span-4 space-y-8 h-full">
-          <section className="space-y-4">
-            <h2 className="text-sm font-bold uppercase tracking-widest text-white/40 px-1">
-              Data Ingestion
-            </h2>
-            <FileUpload 
-              onUploadStart={() => setLoading(true)}
-              onUploadSuccess={() => setLoading(false)}
-              onUploadError={(err) => { setError(err); setLoading(false); }}
-            />
-          </section>
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col h-screen overflow-hidden">
+        {/* Top Header */}
+        <header className="h-16 border-b border-white/5 flex items-center justify-between px-8 shrink-0">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1.5 px-3 py-1 bg-white/5 rounded-full text-[10px] font-bold text-white/40 border border-white/5">
+              <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+              PROD-CLUSTER-A
+            </div>
+          </div>
 
-          <section className="space-y-4">
-            <h3 className="text-sm font-bold uppercase tracking-widest text-white/40 px-1">
-              Active Query
-            </h3>
-            <form onSubmit={handleSearch} className="relative group">
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Ask about shipment anomalies..."
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder:text-white/20 focus:outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/10 transition-all"
-              />
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/20 group-focus-within:text-primary transition-colors" />
-              <button 
-                type="submit"
-                disabled={loading || !query}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-2 hover:bg-primary/20 rounded-lg text-primary transition-all disabled:opacity-0"
-              >
-                <Cpu className="w-5 h-5" />
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-3">
+              <button className="p-2 hover:bg-white/5 rounded-xl transition-colors relative">
+                <Bell className="w-5 h-5 text-white/40" />
+                <div className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full" />
               </button>
-            </form>
-          </section>
-        </aside>
+              <button className="p-2 hover:bg-white/5 rounded-xl transition-colors">
+                <Search className="w-5 h-5 text-white/40" />
+              </button>
+            </div>
+            <div className="h-8 w-px bg-white/5" />
+            <div className="flex items-center gap-3 hover:bg-white/5 p-1.5 pr-4 rounded-xl transition-colors cursor-pointer group">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent overflow-hidden">
+                <User className="w-full h-full p-1.5 text-white" />
+              </div>
+              <div className="hidden lg:block text-left">
+                <p className="text-xs font-bold text-white leading-none">Rudra Kankotiya</p>
+                <p className="text-[10px] text-white/40 font-medium tracking-tight">Lead Engineer</p>
+              </div>
+            </div>
+          </div>
+        </header>
 
-        {/* Right Column: Visualization & Response */}
-        <div className="lg:col-span-8 space-y-8">
+        {/* Dynamic Section Area */}
+        <div className="flex-1 overflow-y-auto p-8 relative">
           <AnimatePresence mode="wait">
-            {error && (
+            {activeTab === "dashboard" && (
               <motion.div 
+                key="dash"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="p-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-2xl text-sm"
+                exit={{ opacity: 0, scale: 0.98 }}
+                className="max-w-7xl mx-auto space-y-12 pb-20"
               >
-                Error: {error}
+                {/* Hero / Hero Input */}
+                <section className="grid grid-cols-1 xl:grid-cols-2 gap-12 items-center">
+                  <div className="space-y-6">
+                    <motion.div 
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="inline-flex items-center gap-2 px-4 py-1.5 bg-primary/10 rounded-full border border-primary/20 text-primary text-xs font-bold uppercase tracking-[0.2em]"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Next Generation Risk Intelligence
+                    </motion.div>
+                    <h2 className="text-5xl lg:text-7xl font-bold text-white tracking-tighter leading-[0.9]">
+                      Identify Threats, <br/> 
+                      <span className="text-gradient">Faster than ever.</span>
+                    </h2>
+                    <p className="text-white/40 text-lg font-light max-w-xl italic leading-relaxed">
+                      Our Risk Engine leverages deep neural retrieval to cross-reference global regulations 
+                      and shipment history in milliseconds.
+                    </p>
+
+                    <div className="flex flex-wrap gap-2 pt-4">
+                      {suggestions.map((s, i) => (
+                        <button 
+                          key={i} 
+                          onClick={() => handleQuery(s)}
+                          className="px-4 py-2 glass rounded-xl text-xs font-medium text-white/50 hover:text-white hover:border-primary/50 transition-all"
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="h-full">
+                    <FileUpload 
+                      onUploadStart={() => setLoading(true)}
+                      onUploadSuccess={() => setLoading(false)}
+                      onUploadError={() => setLoading(false)}
+                    />
+                  </div>
+                </section>
+
+                {/* Dashboard Metrics */}
+                <AnimatePresence>
+                  {(response || loading) && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 40 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="space-y-12"
+                    >
+                      {/* Top Bar for Results */}
+                      <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                         <div className="flex items-center gap-4">
+                            <h3 className="text-xl font-bold text-white uppercase italic">Session ID: <span className="text-primary tracking-tighter">RX-990-2</span></h3>
+                            <button className="flex items-center gap-2 px-3 py-1 bg-white/5 rounded-lg text-[10px] font-bold text-white/40 hover:text-white transition-colors">
+                               <Download className="w-3.5 h-3.5" /> EXPORT REPORT
+                            </button>
+                            <button className="flex items-center gap-2 px-3 py-1 bg-white/5 rounded-lg text-[10px] font-bold text-white/40 hover:text-white transition-colors">
+                               <Share2 className="w-3.5 h-3.5" /> SHARE LINK
+                            </button>
+                         </div>
+                      </div>
+
+                      <RiskDashboard 
+                        level={response?.risk_level || "Medium"}
+                        anomalyScore={response?.anomaly_score || 0}
+                        confidence={response?.confidence_score || 0}
+                        reasoning={response?.reasoning_points || []}
+                      />
+
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+                         <div className="lg:col-span-8">
+                            <ChatInterface onSendMessage={handleQuery} />
+                         </div>
+                         <div className="lg:col-span-4">
+                            <ExplainabilityPanel />
+                         </div>
+                      </div>
+
+                      <SourceSection sources={response?.sources || []} />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
             )}
 
-            {(response || loading) ? (
+            {activeTab === "chat" && (
               <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-8"
+                 key="chat"
+                 initial={{ opacity: 0, scale: 0.98 }}
+                 animate={{ opacity: 1, scale: 1 }}
+                 className="max-w-4xl mx-auto h-full flex flex-col"
               >
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="md:col-span-2">
-                    <ResponsePanel loading={loading} text={response?.answer || ""} />
-                  </div>
-                  <div>
-                    {loading ? (
-                       <div className="h-[200px] glass rounded-2xl shimmer" />
-                    ) : (
-                      <RiskVisualizer level={response?.risk_level || "Medium"} />
-                    )}
-                  </div>
-                </div>
-
-                {!loading && response && (
-                  <SourceSection sources={response.sources} />
-                )}
-              </motion.div>
-            ) : (
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex flex-col items-center justify-center p-20 glass rounded-3xl border-dashed border-2 border-white/5 text-center gap-4"
-              >
-                <Search className="w-16 h-16 text-white/5" />
-                <div className="space-y-1">
-                  <p className="text-xl font-medium text-white/40">Ready to Scan</p>
-                  <p className="text-sm text-white/20">Analyze shipment documents to detect potential risks.</p>
-                </div>
+                  <ChatInterface onSendMessage={handleQuery} />
               </motion.div>
             )}
           </AnimatePresence>
         </div>
-      </div>
 
-      {/* Footer / Branding */}
-      <footer className="pt-12 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4 text-white/20 text-xs font-mono">
-        <p>© 2026 Smart Container | Secure Logistics Intelligence</p>
-        <div className="flex gap-6">
-          <a href="#" className="hover:text-primary transition-colors">Documentation</a>
-          <a href="#" className="hover:text-primary transition-colors">API Status</a>
-          <a href="#" className="hover:text-primary transition-colors">Compliance</a>
+        {/* Footer Overlay (Absolute bottom right) */}
+        <div className="absolute bottom-8 right-8 z-50">
+           <VoiceInput onTranscript={handleQuery} />
         </div>
-      </footer>
-    </main>
+      </main>
+    </div>
+  );
+}
+
+function NavItem({ icon: Icon, label, active, onClick }: { icon: any, label: string, active: boolean, onClick?: () => void }) {
+  return (
+    <button 
+      onClick={onClick}
+      className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all group ${
+        active 
+          ? "bg-primary/10 text-primary border border-primary/20 glow-primary" 
+          : "text-white/40 hover:text-white hover:bg-white/5"
+      }`}
+    >
+      <Icon className={`w-5 h-5 transition-transform group-hover:scale-110 ${active ? "text-primary" : "text-white/20"}`} />
+      <span className="font-bold text-sm tracking-tight hidden lg:block uppercase italic">{label}</span>
+      {active && <ChevronRight className="w-4 h-4 ml-auto hidden lg:block" />}
+    </button>
   );
 }

@@ -54,6 +54,9 @@ class AskRequest(BaseModel):
 class AskResponse(BaseModel):
     answer: str
     risk_level: str
+    anomaly_score: int
+    confidence_score: int
+    reasoning_points: list[str]
     sources: list[dict]
     num_docs_retrieved: int
 
